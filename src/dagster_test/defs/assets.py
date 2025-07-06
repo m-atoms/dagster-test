@@ -50,3 +50,24 @@ def raw_payments(duckdb: DuckDBResource) -> None:
         duckdb_path="/tmp/jaffle_platform.duckdb",
         table_name="jaffle_platform.main.raw_payments",
     )
+
+@dg.asset_check(
+    asset=raw_customers,
+    description="Check if there are any null customer_ids in the joined data",
+)
+def missing_dimension_check(duckdb: DuckDBResource) -> dg.AssetCheckResult:
+    table_name = "jaffle_platform.main.raw_customers"
+
+    with duckdb.get_connection() as conn:
+        query_result = conn.execute(
+            f"""
+            select count(*)
+            from {table_name}
+            where id is null
+            """
+        ).fetchone()
+
+        count = query_result[0] if query_result else 0
+        return dg.AssetCheckResult(
+            passed=count == 0, metadata={"customer_id is null": count}
+        )
